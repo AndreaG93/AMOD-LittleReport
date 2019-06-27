@@ -1,0 +1,290 @@
+\documentclass[10pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{amssymb}
+\usepackage{algorithm}
+\usepackage[noend]{algpseudocode}
+\usepackage{adjustbox}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{frontespizio} 
+
+\lstset{
+language=Java,
+basicstyle=\small\ttfamily,			
+keywordstyle=\color{blue},
+commentstyle=\color{gray},			
+stringstyle=\color{black},			
+numbers=left,						
+numberstyle=\tiny,					
+stepnumber=1,						
+breaklines=true						
+}
+
+\begin{document}
+
+% Frontespizio
+% ------------------------------------------------------
+\begin{frontespizio} 
+\Universita{Roma ``Tor Vergata'' } 
+\Logo[3cm]{logo}
+\Facolta{Ingegneria} 
+\Corso[Laurea Magistrale]{Ingegneria Informatica} 
+\Annoaccademico{2018--2019} 
+\Titolo{The Cutting-Stock Problem}
+\Sottotitolo{Algoritmi e Modelli per l'Ottimizzazione Discreta}
+\NCandidato{Studente} 
+\Candidato[0273395]{Andrea Graziani} 
+\NRelatore{Docente}{} 
+\Relatore{Andrea Pacifici} 
+\end{frontespizio} 
+
+\tableofcontents
+\newpage
+
+
+\section{The Cutting-stock problem}
+
+
+
+The \textbf{Cutting-stock problem} (\textbf{CSP}) is the problem concerning cutting standard-sized pieces of stock material, called \textit{rolls}, into pieces of specified sizes, \textbf{minimizing material wasted}.
+
+
+
+In order to formalize that problem as an \textbf{integer linear programming} (\textbf{ILP}), suppose that stock material width is equal to $W$, while $m$ customers want $n_i$ rolls, each of which is wide $w_i$, where $i = 1,...,m$. Obliviously $w_i \leq W$.
+
+
+
+\subsection{\textit{Kantorovich} ILP Formulation }
+
+
+
+\begin{equation}\label{eqn:P1}
+\begin{array} {lllrr} 
+
+(P1) & min & \displaystyle\sum_{k \in K} y_k && \\
+& s.t. & \displaystyle\sum_{k \in K} x_i^k \geq n_i, & i = 1,...,m & (demand) \\
+&& \displaystyle\sum_{i = 1}^m w_i x_i^k \leq W y_k, & \forall k \in K & (width limitation) \\\\
+&& x_i^k \in \mathbb{Z}_{+}, y_k \in \lbrace 0, 1 \rbrace &&
+\end{array}
+\end{equation}
+
+
+
+% ########################################################################################## %
+\subsection{\textit{Gilmore} and \textit{Gomory} ILP formulation}
+
+\begin{itemize}
+\item An alternative, stronger formulation, is due to Gilmore and Gomory, which main idea is \textbf{to enumerate all possible raw cutting patterns}. 
+
+\item A pattern $j \in J$ is described by the vector $(a_{1j},a_{2j},...,a_{mj})$, where $a_{ij}$ represents the number of final rolls of width $w_i$ obtained from cutting a raw roll according to pattern $j$. 
+
+\item In this model we have an integer variable $x_j$ for each pattern $j \in J$, indicating how many times pattern $j$ is used; in other words it represents how many raw rolls are cut according to pattern $j$. 
+\end{itemize}
+
+
+\begin{equation}\label{eqn:P2}
+\begin{array} {lllrr} 
+
+(P2) & min & \displaystyle\sum_{j = 1}^{n} x_j && \\
+& s.t. & \displaystyle\sum_{j = 1}^{n} a_{ij} x_j \geq n_i, & i = 1,...,m & (demand) \\\\
+
+& & x_j \in \mathbb{Z}_{+}, j = 1,...,n  &&
+\end{array}
+\end{equation}
+
+
+\begin{equation}\label{eqn:LPMP}
+\begin{array} {lllrr} 
+
+(LPMP) & min & \displaystyle\sum_{j = 1}^{n} x_j && \\
+& s.t. & \displaystyle\sum_{j = 1}^{n} a_{ij} x_j \geq n_i, & i = 1,...,m & (demand) \\\\
+& & x_j \in \mathbb{R}_{+}, j = 1,...,n  &&
+\end{array}
+\end{equation}
+
+Recall that the dual problem of (LPM) is
+
+\begin{equation}\label{eqn:DLPM}
+\begin{array} {lllr} 
+(DLPMP) & max & \displaystyle\sum_{i = 1}^{m} n_i\pi_i & \\
+& s.t. & \displaystyle\sum_{i = 1}^{m} a_{ij}\pi_i \leq 1 & j \in P, \\\\
+&& \pi_i \geq 0, i = 1,...,m &
+\end{array}
+\end{equation}
+
+\ref{eqn:DLPM}
+
+
+The 
+which is called Linear Programming Master Problem. The solution to (LPM) could be fractional, It is possible to round up the fractional solution to get a feasible solution to 
+
+\vspace{5mm}
+Where $n$ represents the total number of cutting patterns satisfying following relations:
+\begin{equation}
+\begin{array} {c} 
+\displaystyle\sum_{i=1}^m w_i a_{ij} \leq W \\\\ a_{ij} \in \mathbb{Z}_{+}
+\end{array}
+\end{equation}
+
+
+\begin{itemize}
+\item \textbf{How many cutting patterns exist?}
+
+\vspace{5mm}
+In general, the number of possible patterns \textbf{grows exponentially} as a function of $m$ and it can easily run into the millions. So, it may therefore become impractical to generate and enumerate all possible cutting patterns. 
+
+\vspace{5mm}
+Even if we had a way of generating all existing cutting pattern, that is all columns, the \textbf{standard simplex algorithm} will need to calculate the reduced cost for each non-basic variable, which is, from a computational point of view, impossible when $n$ is huge because is very easy for any computer to go \textbf{out of memory}.
+\end{itemize}
+
+
+\begin{itemize}
+\item Fortunately, another better approach, which we have used in our project, exists: \textbf{column generation method}.
+\end{itemize}
+
+This method solves the cutting-stock problem by starting with just a few patterns and it generates additional patterns when they are needed. To be more precise, the new patterns are found by solving an auxiliary optimization problem, which, as we will see, is a knapsack problem, using dual variable information from the linear problem. 
+
+Auxiliary knapsack problems can be resolved efficiently in $O(mW)$ time using dynamic programming or branch and bound method.
+
+
+
+\begin{algorithm}
+
+\caption{}\label{alg:accessControlAlgorithm1}
+
+\begin{algorithmic}
+
+\Function{Column Generation Algorithm }{$\textit{arrivalJob}$}
+
+LPMP
+
+Start with initial columns A of (LPM). For instance, use the simple pattern to cut a roll into bW/wic rolls of width wi, A is a diagonal matrix.
+
+
+
+\If {$(n_1 + n_2=N)$}
+	\State Send $\textit{arrivalJob}$ on the cloud.
+\Else 	
+ 	\State Send $\textit{arrivalJob}$ on the cloudlet.
+\EndIf
+
+\EndFunction
+
+\end{algorithmic}
+
+\end{algorithm}
+
+\section{Computational Model}
+
+Let's start now the description of our system \textit{computational model} in which, as known, system's states exist as a collection of data structure, classes and variables that collectively characterize the system and are systematically updated as simulated time evolves.
+
+Our model is been implemented using Java programming languages, which source code is fully available on GitHub\footnote{Source code available on \texttt{https://github.com/AndreaG93/PMCSN-Project}}, famous web-based hosting service for version control using \texttt{git}; we remind that \LaTeX\ source code of this report is available too.\footnote{See \texttt{https://github.com/AndreaG93/PMCSN-Project-Report}}
+
+In order to properly describe how our implementation works we need to understand how all system's events, seen in previous section, are represented and managed.
+
+\begin{lstlisting}[frame=lines, caption={\texttt{CuttingStockInstance} class implementation.}, label={code:instance}]
+public class CuttingStockInstance {
+
+    private final double maxItemLength;
+    private ArrayList<CuttingStockItem> items;
+
+    public CuttingStockInstance(double maxItemLength) {
+        this.maxItemLength = maxItemLength;
+        this.items = new ArrayList<>();
+    }
+
+    public void addItems(double amount, double length) {
+        this.items.add(new CuttingStockItem(amount, length));
+    }
+
+    double getMaxItemLength() {
+        return maxItemLength;
+    }
+
+    ArrayList<CuttingStockItem> getItems() {
+        return items;
+    }
+}
+\end{lstlisting}
+
+
+\begin{lstlisting}[frame=lines, caption={\texttt{solve()} method implementation.}, label={code:solve}]
+public void solve() throws Exception {
+
+   buildMasterProblem();
+   buildKnapsackSubProblem();
+
+   timer.schedule( task, 15000 );
+   long start = System.currentTimeMillis();
+        
+   executeColumnGenerationAlgorithm();
+        
+   long finish = System.currentTimeMillis();
+   buildSolution();
+
+   this.cuttingStockSolution.setTimeElapsed(finish - start);
+}
+\end{lstlisting}
+
+
+\begin{lstlisting}[frame=lines, caption={\texttt{executeColumnGenerationAlgorithm()} method implementation.}, label={code:cga}]
+private void executeColumnGenerationAlgorithm() throws Exception {
+
+    LinearProblemSolution masterProblemDualSolution;
+    LinearProblemSolution knapsackSubProblemSolution;
+
+    while (!this.timeOut) {
+
+       this.masterProblemSolution = this.masterProblem.getSolution();
+       masterProblemDualSolution = this.masterProblem.getDualSolution();
+
+       this.cuttingStockSolution.addObjectiveFunctionValue(this.masterProblemSolution.getValueObjectiveFunction());
+
+       this.knapsackSubProblem.changeObjectiveFunctionCoefficients(masterProblemDualSolution.getSolutions());
+       knapsackSubProblemSolution = this.knapsackSubProblem.getSolution();
+
+       if (1 - knapsackSubProblemSolution.getValueObjectiveFunction() < 0) {
+
+           double[] newColumn = knapsackSubProblemSolution.getSolutions();
+
+           this.masterProblem.addNewColumn(0.0, GRB.INFINITY, 1.0, VariableType.REAL, newColumn);
+           this.cuttingStockSolution.increaseTotalNumberOfColumnsAdded();
+
+       } else
+           break;
+       }
+
+    this.timer.cancel();
+}
+\end{lstlisting}
+
+\begin{lstlisting}[frame=lines, caption={\texttt{buildMasterProblem()} method implementation.}, label={code:cga}]
+private void buildMasterProblem() throws Exception {
+
+    ArrayList<CuttingStockItem> cuttingStockItems = instance.getItems();
+    double maxItemLength = instance.getMaxItemLength();
+    int numberOfVariables = cuttingStockItems.size();
+
+    double[] coefficientObjectiveFunction = new double[numberOfVariables];
+
+    this.masterProblem.setVariables(numberOfVariables, 0, GRB.INFINITY, VariableType.REAL);
+
+    Arrays.fill(coefficientObjectiveFunction, 1);
+
+    this.masterProblem.setObjectiveFunction(coefficientObjectiveFunction, LinearProblemType.min);
+
+    for (int index = 0; index < numberOfVariables; index++) {
+
+        CuttingStockItem currentItem = cuttingStockItems.get(index);
+
+        double[] constraintCoefficients = new double[numberOfVariables];
+
+        constraintCoefficients[index] = ((int) (maxItemLength / currentItem.getLength()));
+        this.masterProblem.addConstraint(constraintCoefficients, MathematicalSymbol.GREATER_EQUAL, currentItem.getAmount());
+    }
+}
+\end{lstlisting}
+
+\end{document}
