@@ -46,15 +46,9 @@ breaklines=true
 
 \section{The Cutting-stock problem}
 
-
-
 The \textbf{Cutting-stock problem} (\textbf{CSP}) is the problem concerning cutting standard-sized pieces of stock material, called \textit{rolls}, into pieces of specified sizes, \textbf{minimizing material wasted}.
 
-
-
 In order to formalize that problem as an \textbf{integer linear programming} (\textbf{ILP}), suppose that stock material width is equal to $W$, while $m$ customers want $n_i$ rolls, each of which is wide $w_i$, where $i = 1,...,m$. Obliviously $w_i \leq W$.
-
-
 
 \subsection{\textit{Kantorovich} ILP Formulation }
 
@@ -176,13 +170,27 @@ Start with initial columns A of (LPM). For instance, use the simple pattern to c
 
 \end{algorithm}
 
+\clearpage
+\newpage
 \section{Computational Model}
 
-Let's start now the description of our system \textit{computational model} in which, as known, system's states exist as a collection of data structure, classes and variables that collectively characterize the system and are systematically updated as simulated time evolves.
+Let's start now the description of our resolver implementation in which, as known, we will turn all mathematical variables described above into a collection of data structure, classes and variables that, collectively, are able to resolve CSP problem.
 
-Our model is been implemented using Java programming languages, which source code is fully available on GitHub\footnote{Source code available on \texttt{https://github.com/AndreaG93/PMCSN-Project}}, famous web-based hosting service for version control using \texttt{git}; we remind that \LaTeX\ source code of this report is available too.\footnote{See \texttt{https://github.com/AndreaG93/PMCSN-Project-Report}}
+Our resolver is been implemented using Java programming languages, which source code is fully available on GitHub\footnote{Source code available on \texttt{https://github.com/AndreaG93/AMOD-Project}}, famous web-based hosting service for version control using \texttt{git}; we remind that \LaTeX\ source code of this report is available too.\footnote{See \texttt{https://github.com/AndreaG93/AMOD-Report}}
 
-In order to properly describe how our implementation works we need to understand how all system's events, seen in previous section, are represented and managed.
+In order to properly describe how our implementation works we need to understand how every mathematical elements, seen in previous section, are represented and managed.
+
+\subsection{The CSP instance}
+
+A \textit{generic} CSP instance has been implemented and represented using a Java class called \texttt{CuttingStockInstance}, shown in Listing \ref{code:instance}. In addition to several getter and setter methods, that class has two very important features: 
+
+\begin{itemize}
+\item It has got a \texttt{final double} type field, called \texttt{maxItemLength}, which is used to hold the stock material width value that is, in other word, the raw roll width $W$.
+
+\item Through a list data structure, it holds a reference to all items required by customers through an \texttt{ArrayList<>} type field, called \texttt{items}. 
+
+As you can see from Listing \ref{code:instance}, that list contains $m$ \texttt{CuttingStockItem} type instances which, obliviously, represent all specific items request by each customer. To be more precise, every \texttt{CuttingStockItem} type instances $i$, where $i = 1,...,m$, contains two \texttt{double} type fields, called \texttt{length} and \texttt{amount}, which are used respectively to hold a reference to $w_i$ and $n_i$, that is the length and the amount of rolls required by $m$-th customer. 
+\end{itemize}
 
 \begin{lstlisting}[frame=lines, caption={\texttt{CuttingStockInstance} class implementation.}, label={code:instance}]
 public class CuttingStockInstance {
@@ -208,6 +216,66 @@ public class CuttingStockInstance {
     }
 }
 \end{lstlisting}
+
+\section{ILP implementation}
+
+In our computational model, a \textit{generic} ILP is been represented using a Java \texttt{interface} called \texttt{LinearProblem}, which code is shown in \ref{code:LinearProblem}. In order to resolve a CSP, our computational model 
+
+
+
+Note that 
+
+That interface exports only necessary methods for CSP resolution. Our resolver is unaware of because 
+
+
+
+
+
+In fact, to ensure low coupling and high cohesion among classes, neither \texttt{SimulationEvent} or \texttt{ComputationalModel} class need to know any specific system information. 
+
+
+
+\begin{lstlisting}[frame=lines, caption={\texttt{LinearProblem} interface implementation.}, label={code:LinearProblem}]
+public abstract class LinearProblem {
+
+    public abstract LinearProblemSolution getSolution() throws Exception;
+    
+	public abstract LinearProblemSolution getDualSolution() throws Exception;
+
+    public abstract void setObjectiveFunctionType(LinearProblemType type) throws Exception;
+
+    public abstract void changeObjectiveFunctionCoefficients(double[] newCoefficients) throws Exception;
+
+    public abstract void addConstraint(double[] coefficients, MathematicalSymbol symbol, double value) throws Exception;
+
+    public abstract void setVariables(int totalNumberOfVariables, double lowerBound, double upperBound, VariableType varType) throws Exception;
+
+    public abstract void setObjectiveFunction(double[] coefficients, LinearProblemType type) throws Exception;
+
+    public abstract void addNewColumn(double newVariableLowerBound, double newVariableUpperBound, double value, VariableType varType, double[] columnCoefficient) throws Exception;
+
+    public abstract double[] getColumnCoefficient(int index) throws Exception;
+}
+\end{lstlisting}
+
+\section{Column Generation Algorithm implementation}
+
+The most important code is included, instead, into \texttt{CuttingStockProblem} class because it contains next-event simulation logic. Technically, \texttt{ComputationalModel} provides \texttt{perform} method implementation, which contains the algorithm\footnote{Lawrence M. Leemis, Stephen K. Park, \textit{Discrete-Event Simulation: A First Course} (Pearson; 1 edition January 6, 2006), Algorithm 5.1.1, page 189} used to perform a simulation based on next-event approach, whose Java implementation is reported in Listing \ref{code:perform}. 
+
+
+CuttingStockProblem type instance has several very important responsibilities:
+
+\begin{itemize}
+
+\item Allocation and management of all \texttt{SystemComponent} type objects LinearProblem
+
+\item Methods implementation providing for simulation clock and system nodes state variables initialization.
+
+\item Event scheduling management through some methods invocations like \texttt{sche\-dule\-Event\-OnCloud}, \texttt{scheduleEventOnCloulet} etc.
+
+\item Class 2 job interruption management through the so called \texttt{removeCloud\-let\-Class2JobDeparture} method.
+\end{itemize}
+
 
 
 \begin{lstlisting}[frame=lines, caption={\texttt{solve()} method implementation.}, label={code:solve}]
