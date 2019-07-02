@@ -44,14 +44,15 @@ breaklines=true
 \newpage
 
 
-\section{The Cutting-stock problem}
+\section{Analytical model}
 
 The \textbf{Cutting-stock problem} (\textbf{CSP}) is the problem concerning cutting standard-sized pieces of stock material, called \textit{rolls}, into pieces of specified sizes, \textbf{minimizing material wasted}.
 
+\subsection{ILP Formulation}
+
 In order to formalize that problem as an \textbf{integer linear programming} (\textbf{ILP}), suppose that stock material width is equal to $W$, while $m$ customers want $n_i$ rolls, each of which is wide $w_i$, where $i = 1,...,m$. Obliviously $w_i \leq W$.
 
-\subsection{\textit{Kantorovich} ILP Formulation }
-
+As known, the first known ILP formulation of CSP was presented in 1939 by \textbf{Kantorovich}\footnote{\texttt{https://arxiv.org/ftp/arxiv/papers/1606/1606.01419.pdf}}, which is reported below:
 
 
 \begin{equation}\label{eqn:P1}
@@ -64,19 +65,28 @@ In order to formalize that problem as an \textbf{integer linear programming} (\t
 \end{array}
 \end{equation}
 
+Where:
 
+\begin{equation}
+\begin{array} {lllrr} 
 
-% ########################################################################################## %
-\subsection{\textit{Gilmore} and \textit{Gomory} ILP formulation}
+K & = & \text{Index set of available rolls.} \\\\
+y_k & = & \begin{cases} 1, & \mbox{if roll } k\mbox{ is cut} \\ 0, & \mbox{otherwise} \end{cases} \\\\
+x_k^i & = & \text{Number of times item } i \text{ is cut on roll } k. \\\\
+\end{array}
+\end{equation}
+
+Although is very easy to implement that formulation, its performances are very bad in practice due to a poor linear program relaxation of (P1).
+
+Fortunately, an alternative and stronger ILP formulation exists and it is due to \textbf{Gilmore and Gomory}; to describe it, we had to know the following:
 
 \begin{itemize}
-\item An alternative, stronger formulation, is due to Gilmore and Gomory, which main idea is \textbf{to enumerate all possible raw cutting patterns}. 
-
-\item A pattern $j \in J$ is described by the vector $(a_{1j},a_{2j},...,a_{mj})$, where $a_{ij}$ represents the number of final rolls of width $w_i$ obtained from cutting a raw roll according to pattern $j$. 
+\item A \textbf{pattern} $j \in J$ is described by the vector $(a_{1j},a_{2j},...,a_{mj})$, where $a_{ij}$ represents the number of final rolls of width $w_i$ obtained from cutting a raw roll according to pattern $j$. 
 
 \item In this model we have an integer variable $x_j$ for each pattern $j \in J$, indicating how many times pattern $j$ is used; in other words it represents how many raw rolls are cut according to pattern $j$. 
 \end{itemize}
 
+The Gilmore and Gomory ILP formulation (P2) is reported below:
 
 \begin{equation}\label{eqn:P2}
 \begin{array} {lllrr} 
@@ -84,91 +94,106 @@ In order to formalize that problem as an \textbf{integer linear programming} (\t
 (P2) & min & \displaystyle\sum_{j = 1}^{n} x_j && \\
 & s.t. & \displaystyle\sum_{j = 1}^{n} a_{ij} x_j \geq n_i, & i = 1,...,m & (demand) \\\\
 
-& & x_j \in \mathbb{Z}_{+}, j = 1,...,n  &&
+& & x_j \in \mathbb{Z}_{+}, j = 1,...,n  && \\\\
 \end{array}
 \end{equation}
 
+Where $n$ represents the total number of cutting patterns satisfying following relations:
+\begin{equation}
+\begin{array} {c} 
+\displaystyle\sum_{i=1}^m w_i a_{ij} \leq W \\\\ a_{ij} \in \mathbb{Z}_{+}\\\\
+\end{array}
+\end{equation}
 
-\begin{equation}\label{eqn:LPMP}
+Observe that each column of \ref{eqn:P2} (P2) represents a cutting patter. 
+
+Is very important to understand that \textit{the number of existing cutting patterns} is \textbf{exponentially large}; it could be as many as $\dfrac{m!}{\bar{k}!(m-\bar{k})!}$ where $\bar{k}$ is the average number of items in each cutting patterns.\footnote{\texttt{http://opim.wharton.upenn.edu/\~guignard/915\_2015/slides/LR/CG/lecture\_IP8.pdf}}
+
+Since, as we said, the number of possible patterns grows exponentially, it can easily run into the millions, therefore become impractical to generate and enumerate all possible cutting patterns. 
+
+Even if we had a way of generating all existing cutting pattern, that is all columns, the \textbf{standard simplex algorithm} will need to calculate the reduced cost for each non-basic variable, which is, from a computational point of view, impossible when $n$ is huge because is very easy for any computer to go \textbf{out of memory}.
+
+This is the reason according to which we have adopt and implemented another better approach to solve (P2): the \textbf{column generation method}.
+
+\newpage
+\subsection{CSP resolution algorithm}
+
+In order to properly describe the method used to solve (P2), we had to introduce the so called \textbf{Restricted Master Problem} (\textbf{RPM}), which is the LP relaxation of (P2). Its formulation is shown in \ref{eqn:RPM}.
+
+Obliviously (RPM) solutions could be \textit{fractional}; in that case is possible to \textit{round up} the fractional solution to get a feasible solution to (P2); we will make further considerations about that later. 
+
+\begin{equation}\label{eqn:RPM}
 \begin{array} {lllrr} 
 
-(LPMP) & min & \displaystyle\sum_{j = 1}^{n} x_j && \\
-& s.t. & \displaystyle\sum_{j = 1}^{n} a_{ij} x_j \geq n_i, & i = 1,...,m & (demand) \\\\
-& & x_j \in \mathbb{R}_{+}, j = 1,...,n  &&
+(RPM) & min & \displaystyle\sum_{j \in P} x_j && \\
+& s.t. & \displaystyle\sum_{j \in P} a_{ij} x_j \geq n_i, & i = 1,...,m & (demand) \\\\
+& & x_j \geq 0, j \in P  && \\\\
 \end{array}
 \end{equation}
 
-Recall that the dual problem of (LPM) is
+The dual problem of (RPM) is:
 
 \begin{equation}\label{eqn:DLPM}
 \begin{array} {lllr} 
-(DLPMP) & max & \displaystyle\sum_{i = 1}^{m} n_i\pi_i & \\
+(DRPM) & max & \displaystyle\sum_{i = 1}^{m} n_i\pi_i & \\
 & s.t. & \displaystyle\sum_{i = 1}^{m} a_{ij}\pi_i \leq 1 & j \in P, \\\\
 && \pi_i \geq 0, i = 1,...,m &
 \end{array}
 \end{equation}
 
-\ref{eqn:DLPM}
+Resolution method is based on \textbf{column generation algorithm}, which main idea is to solve the CSP by starting with just a few patterns, \textbf{generating, when needed, additional columns}, that could improve current optimal solution of the linear relaxation (RPM). 
 
+To be more precise, the new columns (patterns) are found by solving an auxiliary optimization problem, called \textbf{slave problem} (SP), which, as you can see below, is a \textbf{knapsack problem}. As known, knapsack problems can be resolved efficiently in $O(mW)$ time using dynamic programming or branch and bound method. (SP) ILP formulation is:
 
-The 
-which is called Linear Programming Master Problem. The solution to (LPM) could be fractional, It is possible to round up the fractional solution to get a feasible solution to 
-
-\vspace{5mm}
-Where $n$ represents the total number of cutting patterns satisfying following relations:
-\begin{equation}
-\begin{array} {c} 
-\displaystyle\sum_{i=1}^m w_i a_{ij} \leq W \\\\ a_{ij} \in \mathbb{Z}_{+}
+\begin{equation}\label{eqn:SP}
+\begin{array} {lllr} 
+(SP) & max & \displaystyle\sum_{i = 1}^{m} \pi_i y_i & \\
+& s.t. & \displaystyle\sum_{i = 1}^{m} w_i y_i \leq W & (\text{feasible cutting pattern}) \\\\
+& & y_i \in \mathbb{Z}_{+}, i = 1,...,m  & \\\\
 \end{array}
 \end{equation}
 
+where $y = (y_1,...,y_m)$ represents a column $(a_{1j},...,a_{mj})^T$ (that is a cutting pattern).
 
-\begin{itemize}
-\item \textbf{How many cutting patterns exist?}
+In order to find a new column capable to improve current (RPM) optimal solution, we have to resolve (SP) in the dual variables, finding the column with the \textbf{most negative reduced cost}. 
 
-\vspace{5mm}
-In general, the number of possible patterns \textbf{grows exponentially} as a function of $m$ and it can easily run into the millions. So, it may therefore become impractical to generate and enumerate all possible cutting patterns. 
+Given the optimal dual solution $\bar{\pi}$ of (RPM), the reduced cost of column $j \in \lbrace 1,...,n \rbrace \setminus P$ is:
 
-\vspace{5mm}
-Even if we had a way of generating all existing cutting pattern, that is all columns, the \textbf{standard simplex algorithm} will need to calculate the reduced cost for each non-basic variable, which is, from a computational point of view, impossible when $n$ is huge because is very easy for any computer to go \textbf{out of memory}.
-\end{itemize}
+\begin{equation}
+\sum_{i=1}^m a_{ij} \bar{\pi}
+\end{equation}
 
+A naive way of finding the new column:
 
-\begin{itemize}
-\item Fortunately, another better approach, which we have used in our project, exists: \textbf{column generation method}.
-\end{itemize}
+\begin{equation}
+min \lbrace 1 - \sum_{i=1}^m a_{ij} \bar{\pi} \quad \vert \quad j \in \lbrace 1,...,n \rbrace \setminus P \rbrace
+\end{equation}
 
-This method solves the cutting-stock problem by starting with just a few patterns and it generates additional patterns when they are needed. To be more precise, the new patterns are found by solving an auxiliary optimization problem, which, as we will see, is a knapsack problem, using dual variable information from the linear problem. 
+which is impractical because we are not able to list all cutting patterns in real applications. Therefore we can look for a column (cut pattern) such that:
 
-Auxiliary knapsack problems can be resolved efficiently in $O(mW)$ time using dynamic programming or branch and bound method.
+\begin{equation}
+\kappa = min 1 - \sum_{i=1}^m a_{ij} = 1 - max \sum_{i = 1}^{m} \pi_i y_i
+\end{equation}
 
-
-
-\begin{algorithm}
-
-\caption{}\label{alg:accessControlAlgorithm1}
-
-\begin{algorithmic}
-
-\Function{Column Generation Algorithm }{$\textit{arrivalJob}$}
-
-LPMP
-
-Start with initial columns A of (LPM). For instance, use the simple pattern to cut a roll into bW/wic rolls of width wi, A is a diagonal matrix.
+ 
 
 
 
-\If {$(n_1 + n_2=N)$}
-	\State Send $\textit{arrivalJob}$ on the cloud.
-\Else 	
- 	\State Send $\textit{arrivalJob}$ on the cloudlet.
-\EndIf
 
-\EndFunction
 
-\end{algorithmic}
 
-\end{algorithm}
+
+\begin{enumerate}
+\item Heuristically initialize columns of (RPM) with a subset of pattern $P' \subset P$. In our computational model, we have used very simple patterns according to which a stock roll is cut into $\lfloor \dfrac{W}{w_i}\rfloor$ rolls of width $w_i$ (where $i = 1,...,m$). 
+
+\item Repeat until $\kappa \geq 0$:
+
+\begin{enumerate}
+\item Solve (RPM) and let $\bar{\pi}$  the optimal dual solution of (RPM).
+\item Identify a column $p \in P$ that could reduce the objective function value solving (SP) in dual variables; if $\kappa \geq 0$, add the new column $y = (y_1,...,y_m)$ to (RPM). 
+\end{enumerate}
+
+\end{enumerate}
 
 \clearpage
 \newpage
@@ -219,46 +244,26 @@ public class CuttingStockInstance {
 
 \section{ILP implementation}
 
-In our computational model, a \textit{generic} ILP is been represented using a Java \texttt{interface} called \texttt{LinearProblem}, which code is shown in \ref{code:LinearProblem}. In order to resolve a CSP, our computational model 
+Since an ILP Java implementation depends strictly on which ILP solver you decide to use, in order to ensure low coupling between our computational model and adopted ILP solver, a \textit{generic} ILP is been represented using a Java \texttt{interface} exporting only necessary methods for CSP resolution; that interface, shown in \ref{code:LinearProblem}, is called \texttt{LinearProblem}.
 
+In that way, is possible for our computational model to work with several ILP solvers, as long as properly adapters, implementing all methods required by our interface, are provided. 
 
+Our computational model is compatible with \textit{Gurobi} ILP solver through the concrete class \texttt{GurobiLinearProblem}, containing all method implementation of \ref{code:LinearProblem} interface using all.
 
-Note that 
-
-That interface exports only necessary methods for CSP resolution. Our resolver is unaware of because 
-
-
-
-
-
-In fact, to ensure low coupling and high cohesion among classes, neither \texttt{SimulationEvent} or \texttt{ComputationalModel} class need to know any specific system information. 
-
-
-
-\begin{lstlisting}[frame=lines, caption={\texttt{LinearProblem} interface implementation.}, label={code:LinearProblem}]
-public abstract class LinearProblem {
-
-    public abstract LinearProblemSolution getSolution() throws Exception;
-    
-	public abstract LinearProblemSolution getDualSolution() throws Exception;
-
-    public abstract void setObjectiveFunctionType(LinearProblemType type) throws Exception;
-
-    public abstract void changeObjectiveFunctionCoefficients(double[] newCoefficients) throws Exception;
-
-    public abstract void addConstraint(double[] coefficients, MathematicalSymbol symbol, double value) throws Exception;
-
-    public abstract void setVariables(int totalNumberOfVariables, double lowerBound, double upperBound, VariableType varType) throws Exception;
-
-    public abstract void setObjectiveFunction(double[] coefficients, LinearProblemType type) throws Exception;
-
-    public abstract void addNewColumn(double newVariableLowerBound, double newVariableUpperBound, double value, VariableType varType, double[] columnCoefficient) throws Exception;
-
-    public abstract double[] getColumnCoefficient(int index) throws Exception;
-}
+\begin{lstlisting}[frame=lines, caption={Some methods exported by \texttt{LinearProblem} interface.}, label={code:LinearProblem}]
+public abstract LinearProblemSolution getSolution() throws Exception; 
+public abstract LinearProblemSolution getDualSolution() throws Exception;
+public abstract void setObjectiveFunctionType(LinearProblemType type) throws Exception;
+...
+public abstract void addConstraint(double[] coefficients, MathematicalSymbol symbol, double value) throws Exception;
+...
+public abstract void addNewColumn(double newVariableLowerBound, double newVariableUpperBound, double value, VariableType
 \end{lstlisting}
 
 \section{Column Generation Algorithm implementation}
+
+In our computational model, 
+
 
 The most important code is included, instead, into \texttt{CuttingStockProblem} class because it contains next-event simulation logic. Technically, \texttt{ComputationalModel} provides \texttt{perform} method implementation, which contains the algorithm\footnote{Lawrence M. Leemis, Stephen K. Park, \textit{Discrete-Event Simulation: A First Course} (Pearson; 1 edition January 6, 2006), Algorithm 5.1.1, page 189} used to perform a simulation based on next-event approach, whose Java implementation is reported in Listing \ref{code:perform}. 
 
@@ -267,13 +272,15 @@ CuttingStockProblem type instance has several very important responsibilities:
 
 \begin{itemize}
 
-\item Allocation and management of all \texttt{SystemComponent} type objects LinearProblem
+\item Allocation, initialization and management of all \texttt{LinearProblem} type instance necessary for CSP resolution, including the linear programming master problem and the auxiliary knapsack problem. 
 
-\item Methods implementation providing for simulation clock and system nodes state variables initialization.
+The initialization phase of necessary \texttt{LinearProblem} type instance, performed according to what has been said previously from the analytical point of view, is carried out during \texttt{buildMasterProblem} and \texttt{buildKnapsackSubProblem} methods execution.
 
-\item Event scheduling management through some methods invocations like \texttt{sche\-dule\-Event\-OnCloud}, \texttt{scheduleEventOnCloulet} etc.
+\item Allocation and management of a \textbf{timer}, which, according to requirements, is been implemented in order to stop our resolver once a time limit, fixed to 15 seconds, is reached. If timer expires, an approximate solution of specified CSP problem will be displayed.
 
-\item Class 2 job interruption management through the so called \texttt{removeCloud\-let\-Class2JobDeparture} method.
+\item CSP problem Resolution trhought Column Generation Algorithm
+
+\item Solution building.
 \end{itemize}
 
 
@@ -354,5 +361,13 @@ private void buildMasterProblem() throws Exception {
     }
 }
 \end{lstlisting}
+
+\subsection{Solutions display}
+
+
+
+
+
+
 
 \end{document}
