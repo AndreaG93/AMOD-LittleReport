@@ -9,6 +9,7 @@
 \usepackage{listings}
 \usepackage{xcolor}
 \usepackage{frontespizio} 
+\usepackage{changepage}
 
 \lstset{
 language=Java,
@@ -116,7 +117,7 @@ Even if we had a way of generating all existing cutting pattern, that is all col
 This is the reason according to which we have adopt and implemented another better approach to solve (P2): the \textbf{column generation method}.
 
 \newpage
-\subsection{CSP resolution algorithm}
+\subsection{CSP resolution algorithm}\label{cspresolalg}
 
 In order to properly describe the method used to solve (P2), we had to introduce the so called \textbf{Restricted Master Problem} (\textbf{RPM}), which is the LP relaxation of (P2). Its formulation is shown in \ref{eqn:RPM}.
 
@@ -199,18 +200,18 @@ which is impractical because we are not able to list all cutting patterns in rea
 \newpage
 \section{Computational Model}
 
-Let's start now the description of our resolver implementation in which, as known, we will turn all mathematical variables described above into a collection of data structure, classes and variables that, collectively, are able to resolve CSP problem.
+Let's start now the description of our resolver implementation in which, as known, we will turn all mathematical variables described above into a collection of data structures, classes and variables that, collectively, are able to resolve CSP problems.
 
-Our resolver is been implemented using Java programming languages, which source code is fully available on GitHub\footnote{Source code available on \texttt{https://github.com/AndreaG93/AMOD-Project}}, famous web-based hosting service for version control using \texttt{git}; we remind that \LaTeX\ source code of this report is available too.\footnote{See \texttt{https://github.com/AndreaG93/AMOD-Report}}
+Our application, compatible with \textit{Gurobi} ILP solver\footnote{\texttt{https://www.gurobi.com/}}, is been implemented using Java programming language while GUI is rendered through OpenJFX 12\footnote{\texttt{https://openjfx.io/}} API; however, we preferred to omit a detailed description of all classes involved into GUI rendering because they are just too technical and so not relevant for the purposes of this report.
 
-In order to properly describe how our implementation works we need to understand how every mathematical elements, seen in previous section, are represented and managed.
+Application's source code is available on GitHub\footnote{Source code available on \texttt{https://github.com/AndreaG93/AMOD-Project}}, famous web-based hosting service for version control using \texttt{git}; we remind that \LaTeX\ source code of this report is available too.\footnote{See \texttt{https://github.com/AndreaG93/AMOD-Report}}
 
 \subsection{The CSP instance}
 
 A \textit{generic} CSP instance has been implemented and represented using a Java class called \texttt{CuttingStockInstance}, shown in Listing \ref{code:instance}. In addition to several getter and setter methods, that class has two very important features: 
 
 \begin{itemize}
-\item It has got a \texttt{final double} type field, called \texttt{maxItemLength}, which is used to hold the stock material width value that is, in other word, the raw roll width $W$.
+\item It has got a \texttt{final double} type field, called \texttt{maxItemLength}, which is used to hold the stock material width value $W$.
 
 \item Through a list data structure, it holds a reference to all items required by customers through an \texttt{ArrayList<>} type field, called \texttt{items}. 
 
@@ -232,109 +233,55 @@ public class CuttingStockInstance {
         this.items.add(new CuttingStockItem(amount, length));
     }
 
-    double getMaxItemLength() {
+    public double getMaxItemLength() {
         return maxItemLength;
     }
 
-    ArrayList<CuttingStockItem> getItems() {
+    public ArrayList<CuttingStockItem> getItems() {
         return items;
     }
 }
 \end{lstlisting}
 
-\section{ILP implementation}
+\subsection{ILP solver}
 
-Since an ILP Java implementation depends strictly on which ILP solver you decide to use, in order to ensure low coupling between our computational model and adopted ILP solver, a \textit{generic} ILP is been represented using a Java \texttt{interface} exporting only necessary methods for CSP resolution; that interface, shown in \ref{code:LinearProblem}, is called \texttt{LinearProblem}.
+Obliviously, in order to resolve any CSP problem is necessary to design a way to represent a \textit{generic} ILP, which implementation, generally, depends by which \textit{ILP solver} you decide to use.
 
-In that way, is possible for our computational model to work with several ILP solvers, as long as properly adapters, implementing all methods required by our interface, are provided. 
+To ensure low coupling between our application and the adopted ILP solver, any ILP is been represented by a Java \texttt{interface} called \texttt{LinearProblem}: that interface, as you can see in Listing \ref{code:LinearProblem}, exports \textit{only} necessary methods for CSP resolution.
 
-Our computational model is compatible with \textit{Gurobi} ILP solver through the concrete class \texttt{GurobiLinearProblem}, containing all method implementation of \ref{code:LinearProblem} interface using all.
+In that way, is possible, for our application, to work with any ILP solver, as long as properly adapters, implementing all methods required by our interface, are provided. Actually, only one adapter class, called \texttt{GurobiLinearProblem}, compatible with \textit{Gurobi} ILP solver, containing all method implementations required by \texttt{LinearProblem} interface, is provided by default.
 
+\begin{adjustwidth}{-2cm}{-2cm}
 \begin{lstlisting}[frame=lines, caption={Some methods exported by \texttt{LinearProblem} interface.}, label={code:LinearProblem}]
-public abstract LinearProblemSolution getSolution() throws Exception; 
-public abstract LinearProblemSolution getDualSolution() throws Exception;
-public abstract void setObjectiveFunctionType(LinearProblemType type) throws Exception;
-...
-public abstract void addConstraint(double[] coefficients, MathematicalSymbol symbol, double value) throws Exception;
-...
-public abstract void addNewColumn(double newVariableLowerBound, double newVariableUpperBound, double value, VariableType
+LinearProblemSolution getSolution() throws Exception; 
+  
+LinearProblemSolution getDualSolution() throws Exception;
+
+void setObjectiveFunctionType(LinearProblemType type) throws Exception;
+
+void changeObjectiveFunctionCoefficients(double[] newCoefficients) throws Exception;
+
+void addConstraint(double[] coefficients, MathematicalSymbol symbol, double value) throws Exception;
+void setVariables(int totalNumberOfVariables, double lowerBound, double upperBound, VariableType varType) throws Exception;
+void setObjectiveFunction(double[] coefficients, LinearProblemType type) throws Exception;
+void addNewColumn(double newVariableLowerBound, double newVariableUpperBound, double value, VariableType varType, double[] columnCoefficient) throws Exception;
+double[] getColumnCoefficient(int index) throws Exception;
 \end{lstlisting}
+\end{adjustwidth} 
 
-\section{Column Generation Algorithm implementation}
+\subsection{CSP solver}
 
-In our computational model, 
-
-
-The most important code is included, instead, into \texttt{CuttingStockProblem} class because it contains next-event simulation logic. Technically, \texttt{ComputationalModel} provides \texttt{perform} method implementation, which contains the algorithm\footnote{Lawrence M. Leemis, Stephen K. Park, \textit{Discrete-Event Simulation: A First Course} (Pearson; 1 edition January 6, 2006), Algorithm 5.1.1, page 189} used to perform a simulation based on next-event approach, whose Java implementation is reported in Listing \ref{code:perform}. 
-
-
-CuttingStockProblem type instance has several very important responsibilities:
+A generic CSP problem is represented by \texttt{CuttingStockProblem} type instance, which has has several very important duties like:
 
 \begin{itemize}
 
-\item Allocation, initialization and management of all \texttt{LinearProblem} type instance necessary for CSP resolution, including the linear programming master problem and the auxiliary knapsack problem. 
+\item Allocation, initialization and management of all \texttt{LinearProblem} type instance necessary for CSP resolution.
 
-The initialization phase of necessary \texttt{LinearProblem} type instance, performed according to what has been said previously from the analytical point of view, is carried out during \texttt{buildMasterProblem} and \texttt{buildKnapsackSubProblem} methods execution.
+In fact, every \texttt{CuttingStockProblem} type instance holds a reference to two \texttt{LinearProblem} instances called \texttt{masterProblem} and \texttt{knapsackSubProblem}, respectively used to represent the the restricted master problem (RPM) and the slave problem (SP).
 
-\item Allocation and management of a \textbf{timer}, which, according to requirements, is been implemented in order to stop our resolver once a time limit, fixed to 15 seconds, is reached. If timer expires, an approximate solution of specified CSP problem will be displayed.
+In order to properly initialize the restricted master problem according to what has been said in previous section, is enough to invoke \texttt{buildMasterProblem} method, which is shown below. Another method, called \texttt{buildKnapsackSubProblem}, is used, instead, for (SP) initialization.
 
-\item CSP problem Resolution trhought Column Generation Algorithm
-
-\item Solution building.
-\end{itemize}
-
-
-
-\begin{lstlisting}[frame=lines, caption={\texttt{solve()} method implementation.}, label={code:solve}]
-public void solve() throws Exception {
-
-   buildMasterProblem();
-   buildKnapsackSubProblem();
-
-   timer.schedule( task, 15000 );
-   long start = System.currentTimeMillis();
-        
-   executeColumnGenerationAlgorithm();
-        
-   long finish = System.currentTimeMillis();
-   buildSolution();
-
-   this.cuttingStockSolution.setTimeElapsed(finish - start);
-}
-\end{lstlisting}
-
-
-\begin{lstlisting}[frame=lines, caption={\texttt{executeColumnGenerationAlgorithm()} method implementation.}, label={code:cga}]
-private void executeColumnGenerationAlgorithm() throws Exception {
-
-    LinearProblemSolution masterProblemDualSolution;
-    LinearProblemSolution knapsackSubProblemSolution;
-
-    while (!this.timeOut) {
-
-       this.masterProblemSolution = this.masterProblem.getSolution();
-       masterProblemDualSolution = this.masterProblem.getDualSolution();
-
-       this.cuttingStockSolution.addObjectiveFunctionValue(this.masterProblemSolution.getValueObjectiveFunction());
-
-       this.knapsackSubProblem.changeObjectiveFunctionCoefficients(masterProblemDualSolution.getSolutions());
-       knapsackSubProblemSolution = this.knapsackSubProblem.getSolution();
-
-       if (1 - knapsackSubProblemSolution.getValueObjectiveFunction() < 0) {
-
-           double[] newColumn = knapsackSubProblemSolution.getSolutions();
-
-           this.masterProblem.addNewColumn(0.0, GRB.INFINITY, 1.0, VariableType.REAL, newColumn);
-           this.cuttingStockSolution.increaseTotalNumberOfColumnsAdded();
-
-       } else
-           break;
-       }
-
-    this.timer.cancel();
-}
-\end{lstlisting}
-
+\begin{adjustwidth}{-2cm}{-2cm}
 \begin{lstlisting}[frame=lines, caption={\texttt{buildMasterProblem()} method implementation.}, label={code:cga}]
 private void buildMasterProblem() throws Exception {
 
@@ -361,11 +308,109 @@ private void buildMasterProblem() throws Exception {
     }
 }
 \end{lstlisting}
+\end{adjustwidth} 
 
-\subsection{Solutions display}
+\item Allocation and management of a \textbf{timer} which, according to project requirements, is been implemented in order to stop our resolver once a time limit, fixed to \textbf{20 seconds}, is reached. If timer expires, an approximate solution will be displayed.
+
+\item CSP problem resolution using the algorithm described in \ref{cspresolalg}. That algorithm is been implemented into \texttt{executeColumnGenerationAlgorithm} method, which is shown in Listing \ref{code:cga}:\\
+
+\begin{adjustwidth}{-2cm}{-2cm}
+\begin{lstlisting}[frame=lines, caption={\texttt{executeColumnGenerationAlgorithm()} method implementation.}, label={code:cga}]
+private void executeColumnGenerationAlgorithm() throws Exception { 
+    Map<Integer, CuttingStockPattern> currentSolution;
+    LinearProblemSolution masterProblemDualSolution;
+    LinearProblemSolution knapsackSubProblemSolution;
+    int[] currentIntegerSolution;
+    double[] currentMasterProblemDualSolution;
+    double currentWaste;
+    while (!this.timeOut) {
+
+        this.masterProblemSolution = this.masterProblem.getSolution();
+        masterProblemDualSolution = this.masterProblem.getDualSolution();
+
+        currentIntegerSolution = this.masterProblemSolution.getIntegerSolutions();
+        currentMasterProblemDualSolution = masterProblemDualSolution.getRealSolutions();
+
+        this.cuttingStockSolution.addObjectiveFunctionRealValue(this.masterProblemSolution.getRealValueOfObjectiveFunction());
+        this.cuttingStockSolution.addObjectiveFunctionIntegerValue(this.masterProblemSolution.getIntegerValueOfObjectiveFunction());
+
+        currentSolution = buildSolutionPatterns(currentIntegerSolution);
+        currentWaste = computeWasteFromPattern(currentSolution);
+
+        this.cuttingStockSolution.setCspSolutionPatterns(currentSolution);
+
+        if (this.cuttingStockSolution.addWasteValueCheckingForMinimumValue(currentWaste)) {
+            this.cuttingStockSolution.setCspSolutionPatternsMinimumWaste(currentSolution);
+            this.cuttingStockSolution.setObjectiveFunctionValues_MinimumWaste(this.masterProblemSolution.getIntegerValueOfObjectiveFunction());
+        }
+        this.knapsackSubProblem.changeObjectiveFunctionCoefficients(currentMasterProblemDualSolution);
+        knapsackSubProblemSolution = this.knapsackSubProblem.getSolution();
+
+        if (1 - knapsackSubProblemSolution.getRealValueOfObjectiveFunction() < 0) {
+
+            double[] newColumn = knapsackSubProblemSolution.getRealSolutions();
+            this.masterProblem.addNewColumn(0.0, GRB.INFINITY, 1.0, VariableType.REAL, newColumn);
+            this.cuttingStockSolution.increaseTotalNumberOfColumnsAdded();
+        } else
+            break;
+     }
+     this.timer.cancel();
+}
+\end{lstlisting}
+\end{adjustwidth} 
+
+\end{itemize}
+
+As you can see above, \texttt{executeColumnGenerationAlgorithm} method is used to collect some data which are strictly necessary for charts generation, concerning, for example, restricted master problem objective function value trend. All data collected, including final solutions, are hold by \texttt{CuttingStockSolution} type instance.
+
+Anyway, \texttt{CuttingStockProblem} class includes other very useful method including:
+
+\begin{description}
+\item[\texttt{buildSolutionPatterns}] which is used to build all patterns which belongs to solutions.
+
+\item[\texttt{computeWasteFromPattern}] used, instead, to compute rolls waste according to specified patterns
+\end{description}
+
+\newpage
+\subsection{Solutions visualization}
+
+\begin{figure}[H]
+\includegraphics[width=\textwidth]{./images/main.png}
+\centering
+\caption{Class diagram of our model (main classes and methods only are showed)}
+
+\end{figure}
 
 
 
+\begin{figure}[H]
+\includegraphics[width=\textwidth]{./images/sol1.png}
+\centering
+\caption{Class diagram of our model (main classes and methods only are showed)}
+
+\end{figure}
+
+
+\begin{figure}[H]
+\includegraphics[width=\textwidth]{./images/sol2.png}
+\centering
+\caption{Class diagram of our model (main classes and methods only are showed)}
+
+\end{figure}
+
+\begin{figure}[H]
+\includegraphics[width=\textwidth]{./images/waste.png}
+\centering
+\caption{Class diagram of our model (main classes and methods only are showed)}
+
+\end{figure}
+
+\begin{figure}[H]
+\includegraphics[width=\textwidth]{./images/solgraphic.png}
+\centering
+\caption{Class diagram of our model (main classes and methods only are showed)}
+
+\end{figure}
 
 
 
