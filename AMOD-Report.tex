@@ -60,8 +60,8 @@ As known, the first known ILP formulation of CSP was presented in 1939 by \textb
 \begin{array} {lllrr} 
 
 (P1) & min & \displaystyle\sum_{k \in K} y_k && \\
-& s.t. & \displaystyle\sum_{k \in K} x_i^k \geq n_i, & i = 1,...,m & (demand) \\
-&& \displaystyle\sum_{i = 1}^m w_i x_i^k \leq W y_k, & \forall k \in K & (width limitation) \\\\
+& s.t. & \displaystyle\sum_{k \in K} x_i^k \geq n_i, & i = 1,...,m & (\text{demand}) \\
+&& \displaystyle\sum_{i = 1}^m w_i x_i^k \leq W y_k, & \forall k \in K & (\text{width limitation}) \\\\
 && x_i^k \in \mathbb{Z}_{+}, y_k \in \lbrace 0, 1 \rbrace &&
 \end{array}
 \end{equation}
@@ -84,7 +84,7 @@ Fortunately, an alternative and stronger ILP formulation exists and it is due to
 \begin{itemize}
 \item A \textbf{pattern} $j \in J$ is described by the vector $(a_{1j},a_{2j},...,a_{mj})$, where $a_{ij}$ represents the number of final rolls of width $w_i$ obtained from cutting a raw roll according to pattern $j$. 
 
-\item In this model we have an integer variable $x_j$ for each pattern $j \in J$, indicating how many times pattern $j$ is used; in other words it represents how many raw rolls are cut according to pattern $j$. 
+\item Let $x_j$ an integer variable for each pattern $j \in J$, indicating how many times pattern $j$ is used; in other words, that variable represents how many raw rolls are cut according to pattern $j$. 
 \end{itemize}
 
 The Gilmore and Gomory ILP formulation (P2) is reported below:
@@ -106,33 +106,29 @@ Where $n$ represents the total number of cutting patterns satisfying following r
 \end{array}
 \end{equation}
 
-Observe that each column of \ref{eqn:P2} (P2) represents a cutting patter. 
-
-Is very important to understand that \textit{the number of existing cutting patterns} is \textbf{exponentially large}; it could be as many as $\dfrac{m!}{\bar{k}!(m-\bar{k})!}$ where $\bar{k}$ is the average number of items in each cutting patterns.\footnote{\texttt{http://opim.wharton.upenn.edu/\~guignard/915\_2015/slides/LR/CG/lecture\_IP8.pdf}}
+Observe that each column of (P2) represents a cutting pattern. Is very important to understand that the number of existing cutting patterns (or columns of (P2)) is \textbf{exponentially large}; it could be as many as $\dfrac{m!}{\bar{k}!(m-\bar{k})!}$ where $\bar{k}$ is the average number of items in each cutting patterns.\footnote{\texttt{http://opim.wharton.upenn.edu/\~guignard/915\_2015/slides/LR/CG/lecture\_IP8.pdf}}
 
 Since, as we said, the number of possible patterns grows exponentially, it can easily run into the millions, therefore become impractical to generate and enumerate all possible cutting patterns. 
 
 Even if we had a way of generating all existing cutting pattern, that is all columns, the \textbf{standard simplex algorithm} will need to calculate the reduced cost for each non-basic variable, which is, from a computational point of view, impossible when $n$ is huge because is very easy for any computer to go \textbf{out of memory}.
 
-This is the reason according to which we have adopt and implemented another better approach to solve (P2): the \textbf{column generation method}.
+This is the reason according to which we have adopt and implemented another better approach to solve (P2) which we will describe in next section.
 
 \newpage
 \subsection{CSP resolution algorithm}\label{cspresolalg}
 
-In order to properly describe the method used to solve (P2), we had to introduce the so called \textbf{Restricted Master Problem} (\textbf{RPM}), which is the LP relaxation of (P2). Its formulation is shown in \ref{eqn:RPM}.
-
-Obliviously (RPM) solutions could be \textit{fractional}; in that case is possible to \textit{round up} the fractional solution to get a feasible solution to (P2); we will make further considerations about that later. 
+In order to properly describe the method used to solve (P2), we had to introduce the so called \textbf{Restricted Master Problem} (\textbf{RPM}), which is the LP relaxation of (P2). Its ILP formulation is shown below:.
 
 \begin{equation}\label{eqn:RPM}
 \begin{array} {lllrr} 
 
 (RPM) & min & \displaystyle\sum_{j \in P} x_j && \\
-& s.t. & \displaystyle\sum_{j \in P} a_{ij} x_j \geq n_i, & i = 1,...,m & (demand) \\\\
+& s.t. & \displaystyle\sum_{j \in P} a_{ij} x_j \geq n_i, & i = 1,...,m & (\text{demand}) \\\\
 & & x_j \geq 0, j \in P  && \\\\
 \end{array}
 \end{equation}
 
-The dual problem of (RPM) is:
+while the corresponding dual problem of is:
 
 \begin{equation}\label{eqn:DLPM}
 \begin{array} {lllr} 
@@ -142,26 +138,50 @@ The dual problem of (RPM) is:
 \end{array}
 \end{equation}
 
-Resolution method is based on \textbf{column generation algorithm}, which main idea is to solve the CSP by starting with just a few patterns, \textbf{generating, when needed, additional columns}, that could improve current optimal solution of the linear relaxation (RPM). 
+Obliviously solutions of (RPM) could be \textit{fractional}, in that case is possible to \textit{round up} the fractional solution to get a feasible solution for (P2). However, these rounded solutions are a good approximation for (P2) only when the demand $n_i$ of each requested roll is sufficiently high respect to the ratio between the stock roll and requested rolls lengths, that is $\dfrac{W}{w_i}$, for $i = 1,...,m$.
 
-To be more precise, the new columns (patterns) are found by solving an auxiliary optimization problem, called \textbf{slave problem} (SP), which, as you can see below, is a \textbf{knapsack problem}. As known, knapsack problems can be resolved efficiently in $O(mW)$ time using dynamic programming or branch and bound method. (SP) ILP formulation is:
+We have realized it observing the output generated by our computational model when varying $n_i$ or $w_i$ of a given CSP problem.
 
-\begin{equation}\label{eqn:SP}
-\begin{array} {lllr} 
-(SP) & max & \displaystyle\sum_{i = 1}^{m} \pi_i y_i & \\
-& s.t. & \displaystyle\sum_{i = 1}^{m} w_i y_i \leq W & (\text{feasible cutting pattern}) \\\\
-& & y_i \in \mathbb{Z}_{+}, i = 1,...,m  & \\\\
-\end{array}
-\end{equation}
+Please observe image \ref{img:comp1}: as you can see from reported charts, rounded objective function values of (RPM) aren't very good approximation of objective function values of (P2) since shown graphic aren't very close and similar.
 
-where $y = (y_1,...,y_m)$ represents a column $(a_{1j},...,a_{mj})^T$ (that is a cutting pattern).
+\begin{figure}[H]
+\label{img:comp1}
+\includegraphics[width=\textwidth]{./images/comparation0.png}
+\centering
+\caption{Objective function values trend of (P2) (yellow) and (RPM) (red) (Case 1)}
+\end{figure}
+
+Please observe now image \ref{img:comp2}; it represents the same CSP problem, but all demands, $n_i$, for $i = 1,...,m$, have a \textit{double} value respect to previous case. You can see, as expected, that rounded solution of (RPM) are a very good approximation of (P2) since shown graphic are very close and similar; in this case, in fact, demands have very high values respect to $\dfrac{W}{w_i}$, which remains constant.
+
+
+\begin{figure}[H]
+\label{img:comp2}
+\includegraphics[width=\textwidth]{./images/comparation2.png}
+\centering
+\caption{Objective function values trend of (P2) (yellow) and (RPM) (red) (Case 2)}
+\end{figure}
+
+Now, let's try to varying $W$, that is the length of stock raw roll. In following image, representing the same CSP problem instance, raw stock roll length is been multiplied by 100; in this way $\dfrac{W}{w_i}$ increases its value and becomes more close to the demands $n_i$. As expected, we observe a very bad approximation of rounded solution of (RPM) since distance between the two graphics becomes very high, although they are very similar. You can obtain a same output decreasing the value of demanded rolls length $w_i$.
+
+\begin{figure}[H]
+\label{img:comp2}
+\includegraphics[width=\textwidth]{./images/comparation3.png}
+\centering
+\caption{Objective function values trend of (P2) (yellow) and (RPM) (red) (Case 2)}
+\end{figure}
+
+At this point, we are ready to introduce our resolution algorithm. 
+
+That resolution method is based on \textbf{column generation algorithm}, which main idea is to solve the CSP by starting with just a few patterns, \textbf{generating, when needed, additional columns}, that could improve current optimal solution of the linear relaxation (RPM). 
+
+To be more precise, the new columns (patterns) are found by solving an auxiliary optimization problem, called \textbf{slave problem} (SP), which, as you will can see later, is a \textbf{knapsack problem}. As known, knapsack problems can be resolved efficiently in $O(mW)$ time using dynamic programming or branch and bound method. 
 
 In order to find a new column capable to improve current (RPM) optimal solution, we have to resolve (SP) in the dual variables, finding the column with the \textbf{most negative reduced cost}. 
 
 Given the optimal dual solution $\bar{\pi}$ of (RPM), the reduced cost of column $j \in \lbrace 1,...,n \rbrace \setminus P$ is:
 
 \begin{equation}
-\sum_{i=1}^m a_{ij} \bar{\pi}
+1 - \sum_{i=1}^m a_{ij} \bar{\pi}
 \end{equation}
 
 A naive way of finding the new column:
@@ -170,19 +190,19 @@ A naive way of finding the new column:
 min \lbrace 1 - \sum_{i=1}^m a_{ij} \bar{\pi} \quad \vert \quad j \in \lbrace 1,...,n \rbrace \setminus P \rbrace
 \end{equation}
 
-which is impractical because we are not able to list all cutting patterns in real applications. Therefore we can look for a column (cut pattern) such that:
+which is impractical because we are not able to list all cutting patterns in real applications. However we can find a new column (cutting pattern) resolving the following \textbf{knapsack problem}:
 
-\begin{equation}
-\kappa = min 1 - \sum_{i=1}^m a_{ij} = 1 - max \sum_{i = 1}^{m} \pi_i y_i
+\begin{equation}\label{eqn:SP}
+\begin{array} {lllr} 
+(SP) & \kappa := & \displaystyle min(1 - \sum_{i=1}^m a_{ij}\bar{\pi}) = 1 - max \sum_{i = 1}^{m} \pi_i y_i \\
+& s.t. & \displaystyle\sum_{i = 1}^{m} w_i y_i \leq W & (\text{feasible cutting pattern}) \\\\
+& & y_i \in \mathbb{Z}_{+}, i = 1,...,m  & \\\\
+\end{array}
 \end{equation}
 
- 
+where $y = (y_1,...,y_m)$ represents a column $(a_{1j},...,a_{mj})^T$ (that is a cutting pattern).
 
-
-
-
-
-
+So, we can sum up our CSP resolution method as following:
 
 \begin{enumerate}
 \item Heuristically initialize columns of (RPM) with a subset of pattern $P' \subset P$. In our computational model, we have used very simple patterns according to which a stock roll is cut into $\lfloor \dfrac{W}{w_i}\rfloor$ rolls of width $w_i$ (where $i = 1,...,m$). 
@@ -202,7 +222,7 @@ which is impractical because we are not able to list all cutting patterns in rea
 
 Let's start now the description of our resolver implementation in which, as known, we will turn all mathematical variables described above into a collection of data structures, classes and variables that, collectively, are able to resolve CSP problems.
 
-Our application, compatible with \textit{Gurobi} ILP solver\footnote{\texttt{https://www.gurobi.com/}}, is been implemented using Java programming language while GUI is rendered through OpenJFX 12\footnote{\texttt{https://openjfx.io/}} API; however, we preferred to omit a detailed description of all classes involved into GUI rendering because they are just too technical and so not relevant for the purposes of this report.
+Our application, compatible with \textit{Gurobi} ILP solver\footnote{\texttt{https://www.gurobi.com/}}, is been implemented using Java programming language while GUI is rendered through OpenJFX 12\footnote{\texttt{https://openjfx.io/}} API; however, we preferred to omit a detailed description of all classes involved into GUI rendering because they are just too technical and so not relevant for the purposes of this report. We will describe only main classes and data structure. 
 
 Application's source code is available on GitHub\footnote{Source code available on \texttt{https://github.com/AndreaG93/AMOD-Project}}, famous web-based hosting service for version control using \texttt{git}; we remind that \LaTeX\ source code of this report is available too.\footnote{See \texttt{https://github.com/AndreaG93/AMOD-Report}}
 
@@ -374,10 +394,22 @@ Anyway, \texttt{CuttingStockProblem} class includes other very useful method inc
 \newpage
 \subsection{Solutions visualization}
 
+In this final section, we will show you, with several images, application output after a CSP resolution.
+
+
+
+\begin{figure}[H]
+\includegraphics[width=\textwidth]{./images/fileopne.png}
+\centering
+\caption{Window displayed during input file selection.}
+
+\end{figure}
+
+
 \begin{figure}[H]
 \includegraphics[width=\textwidth]{./images/main.png}
 \centering
-\caption{Class diagram of our model (main classes and methods only are showed)}
+\caption{(PS) and (RMP) objective function values trend. Observe the indication about the number of column added to (RMP) during resolution, the elapsed time and the flag about time expiration.}
 
 \end{figure}
 
@@ -386,7 +418,7 @@ Anyway, \texttt{CuttingStockProblem} class includes other very useful method inc
 \begin{figure}[H]
 \includegraphics[width=\textwidth]{./images/sol1.png}
 \centering
-\caption{Class diagram of our model (main classes and methods only are showed)}
+\caption{Cutting pattern solution. Note number of cuts and waste amounts}
 
 \end{figure}
 
@@ -394,25 +426,22 @@ Anyway, \texttt{CuttingStockProblem} class includes other very useful method inc
 \begin{figure}[H]
 \includegraphics[width=\textwidth]{./images/sol2.png}
 \centering
-\caption{Class diagram of our model (main classes and methods only are showed)}
+\caption{Solution summary focusing on requested and produced item amounts.}
 
 \end{figure}
 
 \begin{figure}[H]
 \includegraphics[width=\textwidth]{./images/waste.png}
 \centering
-\caption{Class diagram of our model (main classes and methods only are showed)}
+\caption{Waste trend value}
 
 \end{figure}
 
 \begin{figure}[H]
 \includegraphics[width=\textwidth]{./images/solgraphic.png}
 \centering
-\caption{Class diagram of our model (main classes and methods only are showed)}
+\caption{A graphic representation of cutting pattern output solutions.}
 
 \end{figure}
-
-
-
 
 \end{document}
